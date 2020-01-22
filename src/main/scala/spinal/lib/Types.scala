@@ -2,6 +2,8 @@
 package spinal.lib.float
 import math._
 import java.nio.ByteBuffer
+import java.lang.Float.floatToRawIntBits
+import java.lang.Double.doubleToRawLongBits
 import spinal.core._
 import spinal.lib._
 
@@ -91,8 +93,36 @@ class IEEEFloat(override val mantissaWidth : Int,
 }
 
 class IEEEFloat16()  extends IEEEFloat(11, 5, 15)
-class IEEEFloat32()  extends IEEEFloat(24, 8, 127)
-class IEEEFloat64()  extends IEEEFloat(53, 11, 1023)
+class IEEEFloat32()  extends IEEEFloat(24, 8, 127) {
+
+  def assignFromFloat(value : Float) : Unit = {
+    
+    val rawVal = floatToRawIntBits(value)
+    val rawSign = (rawVal >> 31) & 0x1
+    val rawExponent = (rawVal >> 23) & 0xFF
+    val rawMantissa = rawVal & 0x7FFFFF
+    
+    sign := B(rawSign)(0)
+    exponent := B(rawExponent)
+    rawMantissa := B(rawMantissa)
+  }
+}
+
+class IEEEFloat64()  extends IEEEFloat(53, 11, 1023) {
+
+  def assignFromDouble(value : Double) : Unit = {
+  
+    val rawVal = doubleToRawLongBits(value)
+    val rawSign = (rawVal >> 63) & 0x1
+    val rawExponent = (rawVal >> 52) & 0x7FF
+    val rawMantissa = rawVal & (BigInt(0xFFFFFF) | (BigInt(0xFFFFFFF) << 24)) 
+    
+    sign := B(rawSign)(0)
+    exponent := B(rawExponent)
+    rawMantissa := B(rawMantissa)
+  }
+}
+
 class IEEEFloat128() extends IEEEFloat(113, 15, 16383)
 class IEEEFloat256() extends IEEEFloat(237, 19, 262143)
 
