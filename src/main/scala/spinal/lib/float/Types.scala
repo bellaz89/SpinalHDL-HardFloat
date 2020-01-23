@@ -20,7 +20,7 @@ abstract class HardFloat[A <: HardFloat[A]] extends Bundle {
   def mantissaLength : Int
   def exponentLength : Int
 
-  def assertExponentMantissaLengthEqual(that : A) : Unit = {
+  def assertExponentMantissaLengthEqual[D <: HardFloat[D]](that : D) : Unit = {
     assert(this.mantissaLength == that.mantissaLength, 
           "mantissaLength should be equal [this = " + 
           this.mantissaLength + " bits, that = " + 
@@ -130,6 +130,11 @@ class IEEEFloat[B](val mantissaWidth : Int,
     ret.mantissa := this.mantissa
     ret
   }
+  
+  def :=[C <: IEEEFloat[C]](that : IEEEFloat[C]) : Unit = {
+    this.assertExponentMantissaLengthEqual(that)
+    this.assignFromBits(that.asBits)
+  }
 
   def assignDataExceptSign(that : IEEEFloat[B]) : Unit = {
     this.assertExponentMantissaLengthEqual(that)
@@ -210,6 +215,12 @@ class RecFloat[B](val mantissaWidth : Int,
     ret.mantissa := this.mantissa
     ret
   }
+
+  def :=[C <: RecFloat[C]](that : RecFloat[C]) : Unit = {
+    this.assertExponentMantissaLengthEqual(that)
+    this.assignFromBits(that.asBits)
+  }
+
 
   def assignDataExceptSign(that : RecFloat[B]) : Unit = {
     this.assertExponentMantissaLengthEqual(that)
