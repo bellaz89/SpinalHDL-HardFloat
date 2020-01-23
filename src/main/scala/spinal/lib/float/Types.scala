@@ -106,7 +106,16 @@ abstract class HardFloat[A <: HardFloat[A]] extends Bundle {
 //  def defaultInf : A 
 //  def defaultSNan : A
 //  def defaultQNan : A
-
+//  def asRaw : RawFloat
+//  def asIEEE : IEEEFloat
+//  def asRec : RecFloat
+//  def asSInt(size : Int) : SInt
+//  def resize(newMantissa: Int, newExponent: Int)
+//  def :=(value : Float)
+//  def :=(value : Double)
+//  def :=(value : Int)
+//  def :=(value : Long)
+//  def :=(value : BigInt)
 }
 
 class IEEEFloat[B](val mantissaWidth : Int,
