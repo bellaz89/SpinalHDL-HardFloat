@@ -15,20 +15,23 @@ object FloatType extends SpinalEnum {
   val QNan         = newElement()
 }
 
-trait HardFloat[A <: HardFloat[A]] extends Bundle {
-  
-  val sign = Bool
+abstract class HardFloat[A <: HardFloat[A]] extends Bundle {
+ 
   def mantissaLength : Int
   def exponentLength : Int
 
-  def := (that: Bits) : Unit = {
-    sign := that(exponentLength+mantissaLength)
-    exponent := that(exponentLength+mantissaLength-1 downto mantissaLength)
-    mantissa := that(mantissaLength-1 downto 0)
+  def assertExponentMantissaLengthEqual(that : A) : Unit = {
+    assert(this.mantissaLength == that.mantissaLength, 
+          "mantissaLength should be equal [this = " + 
+          this.mantissaLength + " bits, that = " + 
+          that.mantissaLength + " bits]")
+    assert(this.exponentLength == that.exponentLength, 
+          "exponentLength should be equal [this = " + 
+          this.mantissaLength + " bits, that = " + 
+          that.mantissaLength + " bits]")
   }
 
-  def apply() = sign ## exponent ## mantissa
-  
+  val sign = Bool
   val exponent = Bits(exponentLength bits)
   val mantissa = Bits(mantissaLength bits) 
 
@@ -52,6 +55,23 @@ trait HardFloat[A <: HardFloat[A]] extends Bundle {
   def isQNan = isNan & !isSNan
   def isSpecial = isNan | isInfinite
   def isValue = !isSpecial
+  def assignDataExceptSign(that : A) : Unit
+
+  def abs : A = {
+    val absVal = cloneOf(this.asInstanceOf[A])
+    absVal.sign := False
+    absVal.assignDataExceptSign(this.asInstanceOf[A])
+    absVal
+  }
+
+  def neg : A =  {
+    val negVal = cloneOf(this.asInstanceOf[A])
+    negVal.sign := !this.sign
+    negVal.assignDataExceptSign(this.asInstanceOf[A])
+    negVal
+  }
+
+
   def floatType = {
     
     val ret = FloatType()
@@ -86,11 +106,12 @@ trait HardFloat[A <: HardFloat[A]] extends Bundle {
 //  def defaultInf : A 
 //  def defaultSNan : A
 //  def defaultQNan : A
+
 }
 
-class IEEEFloat(val mantissaWidth : Int,
-                val exponentWidth : Int) 
-     extends HardFloat[IEEEFloat] {
+class IEEEFloat[B](val mantissaWidth : Int,
+                   val exponentWidth : Int) 
+     extends HardFloat[IEEEFloat[B]] {
 
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth
@@ -102,10 +123,30 @@ class IEEEFloat(val mantissaWidth : Int,
   def isInfinite = isExponentMax & isMantissaZero
   def isNan = isExponentMax & !isMantissaZero
   def isSNan = !mantissa.msb & isNan
+  def toBaseIEEEFloat : IEEEFloat[Null] = {
+    val ret = IEEEFloat(this.mantissaWidth, this.exponentWidth)
+    ret.sign     := this.sign
+    ret.exponent := this.exponent
+    ret.mantissa := this.mantissa
+    ret
+  }
+
+  def assignDataExceptSign(that : IEEEFloat[B]) : Unit = {
+    this.assertExponentMantissaLengthEqual(that)
+    this.exponent := that.exponent
+    this.mantissa := that.mantissa
+  }
 }
 
-class IEEEFloat16 extends IEEEFloat(11, 5)
-class IEEEFloat32 extends IEEEFloat(24, 8) {
+object IEEEFloat {
+  def apply(mantissaWidth : Int,
+            exponentWidth : Int) : IEEEFloat[Null] = new IEEEFloat(mantissaWidth,
+                                                                   exponentWidth)
+}
+
+class IEEEFloat16 extends IEEEFloat[IEEEFloat16](11, 5)
+object IEEEFloat16 { def apply = new IEEEFloat16 }
+class IEEEFloat32 extends IEEEFloat[IEEEFloat32](24, 8) {
 
   def assignFromFloat(value : Float) : Unit = {
     
@@ -119,8 +160,9 @@ class IEEEFloat32 extends IEEEFloat(24, 8) {
     rawMantissa := B(rawMantissa)
   }
 }
+object IEEEFloat32 { def apply = new IEEEFloat32 }
 
-class IEEEFloat64 extends IEEEFloat(53, 11) {
+class IEEEFloat64 extends IEEEFloat[IEEEFloat64](53, 11) {
 
   def assignFromDouble(value : Double) : Unit = {
   
@@ -134,13 +176,16 @@ class IEEEFloat64 extends IEEEFloat(53, 11) {
     rawMantissa := B(rawMantissa)
   }
 }
+object IEEEFloat64 { def apply = new IEEEFloat64 }
 
-class IEEEFloat128 extends IEEEFloat(113, 15)
-class IEEEFloat256 extends IEEEFloat(237, 19)
+class IEEEFloat128 extends IEEEFloat[IEEEFloat128](113, 15)
+object IEEEFloat128 { def apply = new IEEEFloat128 }
+class IEEEFloat256 extends IEEEFloat[IEEEFloat256](237, 19)
+object IEEEFloat256 { def apply = new IEEEFloat256 }
 
-class RecFloat(val mantissaWidth : Int,
+class RecFloat[B](val mantissaWidth : Int,
                val exponentWidth : Int) 
-      extends HardFloat[RecFloat] { 
+      extends HardFloat[RecFloat[B]] { 
 
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth+1
@@ -158,17 +203,43 @@ class RecFloat(val mantissaWidth : Int,
                           (isNormalized & exponent.asUInt > 3*pow(2, exponentWidth-2).toInt-1) |
                           (isDenormalized & exponent.asUInt < pow(2, exponentWidth).toInt + 2 - mantissaWidth))
 
+  def toBaseRecFloat : RecFloat[Null] = {
+    val ret = RecFloat(this.mantissaWidth, this.exponentWidth)
+    ret.sign     := this.sign
+    ret.exponent := this.exponent
+    ret.mantissa := this.mantissa
+    ret
+  }
+
+  def assignDataExceptSign(that : RecFloat[B]) : Unit = {
+    this.assertExponentMantissaLengthEqual(that)
+    this.exponent := that.exponent
+    this.mantissa := that.mantissa
+  }
 }
 
-class RecFloat17()  extends RecFloat(11, 5)
-class RecFloat33()  extends RecFloat(24, 8)
-class RecFloat65()  extends RecFloat(53, 11)
-class RecFloat129() extends RecFloat(113, 15)
-class RecFloat257() extends RecFloat(237, 19)
+
+object RecFloat {
+  def apply(mantissaWidth : Int,
+            exponentWidth : Int) : RecFloat[Null] = new RecFloat(mantissaWidth,
+                                                                exponentWidth)
+}
+
+class RecFloat17 extends RecFloat[RecFloat17](11, 5)
+object RecFloat17 { def apply = new RecFloat17 }
+class RecFloat33 extends RecFloat[RecFloat33](24, 8)
+object RecFloat33 { def apply = new RecFloat33 }
+class RecFloat65 extends RecFloat[RecFloat65](53, 11)
+object RecFloat65 { def apply = new RecFloat65 }
+class RecFloat129 extends RecFloat[RecFloat129](113, 15)
+object RecFloat129 { def apply = new RecFloat129 }
+class RecFloat257 extends RecFloat[RecFloat257](237, 19)
+object RecFloat257 { def apply = new RecFloat257 }
 
 class RawFloat(val mantissaWidth : Int,
                val exponentWidth : Int)
       extends HardFloat[RawFloat] {
+  
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth+2
   
@@ -186,4 +257,15 @@ class RawFloat(val mantissaWidth : Int,
   def isInfinite = infinite
   def isNan = nan
   def isSNan = snan
+
+  def assignDataExceptSign(that : RawFloat) : Unit = {
+    this.assertExponentMantissaLengthEqual(that)
+    this.exponent := that.exponent
+    this.mantissa := that.mantissa
+    this.normalized := that.normalized
+    this.zero := that.zero
+    this.infinite := that.infinite
+    this.nan := that.nan
+    this.snan := that.snan
+  }
 }

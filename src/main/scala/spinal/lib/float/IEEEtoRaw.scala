@@ -4,7 +4,7 @@ import spinal.core._
 
 object IEEEtoRaw {
 
-  def apply(ieee : IEEEFloat) : RawFloat = {
+  def apply[B](ieee : IEEEFloat[B]) : RawFloat = {
     
     val normalizedDistance = countLeadingZeros(ieee.mantissa) 
     val normalizedMantissa = ((ieee.mantissa<<normalizedDistance)
