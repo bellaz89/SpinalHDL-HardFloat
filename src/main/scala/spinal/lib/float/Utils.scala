@@ -3,10 +3,9 @@ package spinal.lib.float
 import spinal.core._
 import spinal.lib._
 
-
 object priorityEncoderUnbalanceLadder {
-  def apply(in: Seq[Bool]) : UInt = PriorityMux(in, (0 to in.size).map(x => U(x, log2Up(in.size) bits)))
-  def apply(in: Bits) : UInt = apply(in.asBools)
+  def apply(in : Seq[Bool]) : UInt = PriorityMux(in, (0 to in.size).map(x => U(x, log2Up(in.size) bits)))
+  def apply(in : Bits) : UInt = apply(in.asBools)
 }
 
 

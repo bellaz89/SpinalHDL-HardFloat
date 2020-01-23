@@ -1,9 +1,7 @@
-
 package spinal.lib.float
 import java.lang.Float.floatToRawIntBits
 import java.lang.Double.doubleToRawLongBits
 import spinal.core._
-import spinal.lib._
 import spire.math._
 
 object FloatType extends SpinalEnum {
@@ -93,12 +91,13 @@ abstract class HardFloat[A <: HardFloat[A]] extends Bundle {
     ret
   }
 
-//  def ===[A](that : [A]) : Bool
-//  def =/=[A](that : [A]) : Bool = !(this === that)
-//  def >[A]
-//  def <[A]
-//  def >=[A]
-//  def <=[A]
+// // Todo: method for comparing assigning etc..
+//  def ===(that : A) : Bool
+//  def =/=(that : A) : Bool = !(this === that)
+//  def >(that : A) : Bool
+//  def <
+//  def >=
+//  def <=
 //  def bitEquals[A](that : [A]) : Bool = (this === that) & (this.sign === that.sign)
 //  def defaultZero : A
 //  def defaultOne : A
@@ -106,16 +105,20 @@ abstract class HardFloat[A <: HardFloat[A]] extends Bundle {
 //  def defaultInf : A 
 //  def defaultSNan : A
 //  def defaultQNan : A
+//  def mimimumRepresentable
 //  def asRaw : RawFloat
 //  def asIEEE : IEEEFloat
 //  def asRec : RecFloat
 //  def asSInt(size : Int) : SInt
 //  def resize(newMantissa: Int, newExponent: Int)
-//  def :=(value : Float)
-//  def :=(value : Double)
-//  def :=(value : Int)
-//  def :=(value : Long)
-//  def :=(value : BigInt)
+//  def :=(value : Float) : Unit
+//  def :=(value : Double) : Unit
+//  def :=(value : Int) : Unit
+//  def :=(value : Long) : Unit
+//  def :=(value : BigInt) : Unit
+//  def max(that : A) : A = Mux(this>that, this, that)
+//  def min(that : A) : A = Mux(this<that, this, that)
+
 }
 
 class IEEEFloat[B](val mantissaWidth : Int,
@@ -207,15 +210,15 @@ class RecFloat[B](val mantissaWidth : Int,
   def getExponentBias = pow(2, BigInt(exponentWidth-1))*2 + 1
   def getSignedExponent = (exponent.asUInt - U(getExponentBias, exponent.getWidth bits)).asSInt
   
-  def isNormalized = (exponent.asUInt >= pow(2, exponentWidth-2).toInt + 2) & !isZero & !isInfinite & !isNan
+  def isNormalized = (exponent.asUInt >= pow(2, BigInt(exponentWidth-2)) + 2) & !isZero & !isInfinite & !isNan
   def isZero = exponent(exponentWidth-1 downto exponentWidth-4) === B"000"
   def isInfinite = exponent(exponentWidth-1 downto exponentWidth-4) === B"110"
   def isNan = exponent(exponentWidth-1 downto exponentWidth-4) === B"111"
   def isSNan = !mantissa.msb & isNan
   def isValidRecFloat = !isInvalidRecFloat
   def isInvalidRecFloat = ((isZero & mantissa =/= B(default -> false)) |
-                          (isNormalized & exponent.asUInt > 3*pow(2, exponentWidth-2).toInt-1) |
-                          (isDenormalized & exponent.asUInt < pow(2, exponentWidth).toInt + 2 - mantissaWidth))
+                          (isNormalized & exponent.asUInt > 3*pow(2, BigInt(exponentWidth-2))-1) |
+                          (isDenormalized & exponent.asUInt < pow(2, BigInt(exponentWidth))+ 2 - mantissaWidth))
 
   def toBaseRecFloat : RecFloat[Null] = {
     val ret = RecFloat(this.mantissaWidth, this.exponentWidth)
@@ -260,7 +263,7 @@ class RawFloat(val mantissaWidth : Int,
                val exponentWidth : Int)
       extends HardFloat[RawFloat] {
   
-  def mantissaLength = mantissaWidth-1
+  def mantissaLength = mantissaWidth+2
   def exponentLength = exponentWidth+2
   
   def getExponentBias = pow(2, BigInt(exponentWidth-1))*2 + 1
