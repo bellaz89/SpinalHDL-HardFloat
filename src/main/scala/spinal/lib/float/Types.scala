@@ -1,11 +1,10 @@
 
 package spinal.lib.float
-import math._
-import java.nio.ByteBuffer
 import java.lang.Float.floatToRawIntBits
 import java.lang.Double.doubleToRawLongBits
 import spinal.core._
 import spinal.lib._
+import spire.math._
 
 object FloatType extends SpinalEnum {
   val Normalized   = newElement()
@@ -16,8 +15,7 @@ object FloatType extends SpinalEnum {
   val QNan         = newElement()
 }
 
-abstract class HardFloat(val mantissaWidth : Int, 
-                         val exponentWidth : Int) extends Bundle {
+trait HardFloat[A <: HardFloat[A]] extends Bundle {
   
   val sign = Bool
   def mantissaLength : Int
@@ -34,7 +32,7 @@ abstract class HardFloat(val mantissaWidth : Int,
   val exponent = Bits(exponentLength bits)
   val mantissa = Bits(mantissaLength bits) 
 
-  def getExponentBias : Int
+  def getExponentBias : BigInt
   def isMantissaZero = mantissa === B(default -> false)
   def isMantissaMax = mantissa === B(default -> true)
   def isExponentZero = exponent === B(default -> false)
@@ -74,17 +72,31 @@ abstract class HardFloat(val mantissaWidth : Int,
     
     ret
   }
+
+//  def ===[A](that : [A]) : Bool
+//  def =/=[A](that : [A]) : Bool = !(this === that)
+//  def >[A]
+//  def <[A]
+//  def >=[A]
+//  def <=[A]
+//  def bitEquals[A](that : [A]) : Bool = (this === that) & (this.sign === that.sign)
+//  def defaultZero : A
+//  def defaultOne : A
+//  def defaultNan : A
+//  def defaultInf : A 
+//  def defaultSNan : A
+//  def defaultQNan : A
 }
 
-class IEEEFloat(override val mantissaWidth : Int,
-                override val exponentWidth : Int,
-                val exponentBias : Int) 
-     extends HardFloat(mantissaWidth, exponentWidth) {
-  
+class IEEEFloat(val mantissaWidth : Int,
+                val exponentWidth : Int) 
+     extends HardFloat[IEEEFloat] {
+
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth
 
-  def getExponentBias = exponentBias
+  def getExponentBias = pow(2, BigInt(exponentWidth-1))-1
+
   def isNormalized = !isExponentZero & !isExponentMax
   def isZero = (exponent ## mantissa) === B(default -> false)
   def isInfinite = isExponentMax & isMantissaZero
@@ -92,8 +104,8 @@ class IEEEFloat(override val mantissaWidth : Int,
   def isSNan = !mantissa.msb & isNan
 }
 
-class IEEEFloat16()  extends IEEEFloat(11, 5, 15)
-class IEEEFloat32()  extends IEEEFloat(24, 8, 127) {
+class IEEEFloat16 extends IEEEFloat(11, 5)
+class IEEEFloat32 extends IEEEFloat(24, 8) {
 
   def assignFromFloat(value : Float) : Unit = {
     
@@ -108,7 +120,7 @@ class IEEEFloat32()  extends IEEEFloat(24, 8, 127) {
   }
 }
 
-class IEEEFloat64()  extends IEEEFloat(53, 11, 1023) {
+class IEEEFloat64 extends IEEEFloat(53, 11) {
 
   def assignFromDouble(value : Double) : Unit = {
   
@@ -123,18 +135,19 @@ class IEEEFloat64()  extends IEEEFloat(53, 11, 1023) {
   }
 }
 
-class IEEEFloat128() extends IEEEFloat(113, 15, 16383)
-class IEEEFloat256() extends IEEEFloat(237, 19, 262143)
+class IEEEFloat128 extends IEEEFloat(113, 15)
+class IEEEFloat256 extends IEEEFloat(237, 19)
 
-class RecFloat(override val mantissaWidth : Int,
-               override val exponentWidth : Int,
-               val exponentBias : Int) 
-      extends HardFloat(mantissaWidth, exponentWidth) {
+class RecFloat(val mantissaWidth : Int,
+               val exponentWidth : Int) 
+      extends HardFloat[RecFloat] { 
 
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth+1
 
-  def getExponentBias = exponentBias
+  def getExponentBias = pow(2, BigInt(exponentWidth-1))*2 + 1
+  def getSignedExponent = (exponent.asUInt - U(getExponentBias, exponent.getWidth bits)).asSInt
+  
   def isNormalized = (exponent.asUInt >= pow(2, exponentWidth-2).toInt + 2) & !isZero & !isInfinite & !isNan
   def isZero = exponent(exponentWidth-1 downto exponentWidth-4) === B"000"
   def isInfinite = exponent(exponentWidth-1 downto exponentWidth-4) === B"110"
@@ -147,21 +160,21 @@ class RecFloat(override val mantissaWidth : Int,
 
 }
 
-class RecFloat17()  extends RecFloat(11, 5, 15)
-class RecFloat33()  extends RecFloat(24, 8, 127)
-class RecFloat65()  extends RecFloat(53, 11, 1023)
-class RecFloat129() extends RecFloat(113, 15, 16383)
-class RecFloat257() extends RecFloat(237, 19, 262143)
+class RecFloat17()  extends RecFloat(11, 5)
+class RecFloat33()  extends RecFloat(24, 8)
+class RecFloat65()  extends RecFloat(53, 11)
+class RecFloat129() extends RecFloat(113, 15)
+class RecFloat257() extends RecFloat(237, 19)
 
-class RawFloat(override val mantissaWidth : Int,
-               override val exponentWidth : Int, 
-               val exponentBias : Int)
-      extends HardFloat(mantissaWidth, exponentWidth) {
+class RawFloat(val mantissaWidth : Int,
+               val exponentWidth : Int)
+      extends HardFloat[RawFloat] {
   def mantissaLength = mantissaWidth-1
   def exponentLength = exponentWidth+2
-
-  def getExponentBias = exponentBias
   
+  def getExponentBias = pow(2, BigInt(exponentWidth-1))*2 + 1
+  def getSignedExponent = (exponent.asUInt - U(getExponentBias, exponent.getWidth bits)).asSInt
+
   val normalized = Bool
   val zero = Bool
   val infinite = Bool

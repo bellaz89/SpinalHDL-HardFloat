@@ -11,8 +11,7 @@ object IEEEtoRaw {
                               (ieee.mantissaLength-2 to 0) << 1)
 
     val raw = new RawFloat(ieee.mantissaWidth,
-                                ieee.exponentWidth,
-                                ieee.exponentBias)
+                           ieee.exponentWidth)
 
     raw.sign := ieee.sign
     raw.infinite := ieee.isInfinite

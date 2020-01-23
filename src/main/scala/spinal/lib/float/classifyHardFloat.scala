@@ -4,7 +4,7 @@ package spinal.lib.float
 import spinal.core._
 
 object classifyHardFloat {
-  def apply(hardFloat : HardFloat) : Bits = {
+  def apply[A <: HardFloat[A]](hardFloat : HardFloat[A]) : Bits = {
     val classifyWord = Bits(32 bits)
     classifyWord(31 downto 10) := B(0)
     classifyWord(0) := hardFloat.isNegativeInfinite
