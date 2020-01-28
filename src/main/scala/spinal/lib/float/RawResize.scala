@@ -10,8 +10,8 @@ object RawResize {
             newExponentWidth : Int) : RawFloat = {
   
     val out = new RawFloat(newMantissaWidth, newExponentWidth)
-    val adjustedExponent = in.exponent.asSInt +^ (S(pow(2, out.exponentWidth) - 
-                                                    pow(2, in.exponentWidth)))
+    val adjustedExponent = (in.exponent.asSInt.resize(out.exponentWidth+1) + 
+                            (S(pow(2, out.exponentWidth)-pow(2, in.exponentWidth))))
 
     val outExponent = if (in.exponentWidth <= out.exponentWidth) adjustedExponent 
                       else ((adjustedExponent < 0) ## 
